@@ -21,7 +21,7 @@ SUMMARY_DIR="$TRIMMED_BASE_DIR/summary_files"
 VCF_DIR="$TRIMMED_BASE_DIR/vcf"
 
 # Create the directories if they do not exist
-mkdir -p "$SAM_DIR" "$BAM_DIR" "$SORTED_BAM_DIR" "$SUMMARY_DIR" "$VCF_DIR"
+mkdir -p "$VCF_DIR"
 
 # Loop through all sorted BAM files that start with 'barcode' and end with '.sorted.bam'
 for BAM_FILE in "$SORTED_BAM_DIR"/barcode*.sorted.bam; do
@@ -30,12 +30,23 @@ for BAM_FILE in "$SORTED_BAM_DIR"/barcode*.sorted.bam; do
     
     # Output VCF file for the current barcode
     OUTPUT_VCF="$VCF_DIR/barcode_${BARCODE}.vcf.gz"
-
-    # Generate the VCF file for the current BAM file
-    bcftools mpileup -B -f "$REFERENCE_GENOME_LINK" "$BAM_FILE" | bcftools call -vmO z -o "$OUTPUT_VCF"| bcftools index $OUTPUT_VCF
+    FILTERED_VCF="$VCF_DIR/barcode_${BARCODE}.filtered.vcf.gz"
     
-    echo "Generated VCF file: $OUTPUT_VCF"
+    # Generate the VCF file for the current BAM file
+    bcftools mpileup -B -I -Q10 -h 100 -f "$REFERENCE_GENOME_LINK" "$BAM_FILE" | bcftools call -mO z -P 0.01 -o "$OUTPUT_VCF"
+
+
+     # Index the VCF file
+    bcftools index "$OUTPUT_VCF"
+
+    # Filter the vcf files to specific regions
+    bcftools view -R /home/cynthia/nomadic3/ag-IR.amplicons.multiplex01.bed  -Oz -o "$FILTERED_VCF" "$OUTPUT_VCF"
+
+
+   # Index the VCF file
+    bcftools index "$FILTERED_VCF"
+
+ echo "Generated VCF file: $OUTPUT_VCF"
 done
 
 echo "All VCF files generated and saved in the $VCF_DIR directory."
-
